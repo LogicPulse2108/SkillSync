@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkillBridge Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <aside class="sidebar">
+    <div class="logo">SB</div>
+
+    <button class="nav-btn active" onclick="showScreen('upload')">
+      Upload
+    </button>
+
+    <button class="nav-btn" onclick="showScreen('dashboard')">
+      Dashboard
+    </button>
+
+    <button class="nav-btn" onclick="showScreen('apply')">
+      Apply
+    </button>
+  </aside>
+
+  <main class="content">
+
+    <div class="topbar">
+      <h2 id="pageTitle">Upload Resume</h2>
+    </div>
+
+    <!-- Upload Screen -->
+    <section id="upload" class="screen active">
+      <div class="upload-box">
+        <h1>SkillBridge Agent</h1>
+        <p>Upload your resume PDF</p>
+
+        <input type="file" id="resumeFile">
+
+        <button onclick="startDemo()">
+          Start Agent
+        </button>
+      </div>
+
+      <div class="terminal" id="logBox">
+        <div>SkillBridge Agent Ready...</div>
+      </div>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dashboard" class="screen">
+
+      <div class="stats">
+
+        <div class="card">
+          <div class="label">Coverage Score</div>
+          <div class="value">61%</div>
+        </div>
+
+        <div class="card">
+          <div class="label">Jobs Analysed</div>
+          <div class="value">30</div>
+        </div>
+
+        <div class="card">
+          <div class="label">Skill Gaps</div>
+          <div class="value">8</div>
+        </div>
+
+      </div>
+
+      <h3>Skill Gaps</h3>
+
+      <div class="gap-row">
+        <span>Docker</span>
+
+        <div class="bar">
+          <div class="fill" style="width:93%"></div>
+        </div>
+
+        <span>93%</span>
+      </div>
+
+      <div class="gap-row">
+        <span>Kubernetes</span>
+
+        <div class="bar">
+          <div class="fill" style="width:85%"></div>
+        </div>
+
+        <span>85%</span>
+      </div>
+
+      <div class="gap-row">
+        <span>AWS</span>
+
+        <div class="bar">
+          <div class="fill" style="width:76%"></div>
+        </div>
+
+        <span>76%</span>
+      </div>
+
+      <h3>Learning Roadmap</h3>
+
+      <div class="roadmap-item">
+        <div class="number">1</div>
+
+        <div>
+          <h4>Docker</h4>
+          <p>Docker & Kubernetes Complete Guide</p>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div class="number">2</div>
+
+        <div>
+          <h4>Kubernetes</h4>
+          <p>Kubernetes for Beginners</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Applications -->
+    <section id="apply" class="screen">
+
+      <h2>Job Applications</h2>
+
+      <div class="job-card" id="job1">
+
+        <h3>Backend Engineer</h3>
+        <p>Razorpay</p>
+
+        <div class="cover-letter">
+          Dear Hiring Manager,
+          I am excited to apply for the Backend Engineer role...
+        </div>
+
+        <div id="actions1">
+          <button onclick="approve('actions1','job1')">
+            Approve & Send
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
