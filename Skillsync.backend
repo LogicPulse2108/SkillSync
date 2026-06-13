@@ -1,0 +1,291 @@
+```python
+import os
+from enum import Enum
+from typing import List
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import (
+    BaseModel,
+    Field,
+    HttpUrl,
+    field_validator,
+)
+
+# --------------------------------------------------
+# LOAD ENVIRONMENT VARIABLES
+# --------------------------------------------------
+
+load_dotenv()
+
+# --------------------------------------------------
+# FASTAPI APP
+# --------------------------------------------------
+
+app = FastAPI(
+    title="SkillBridge Hackathon API",
+    version="1.1.0",
+    description="Backend API for managing hackathons, teams, and submissions."
+)
+
+# --------------------------------------------------
+# CORS CONFIGURATION
+# --------------------------------------------------
+
+origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000"
+    ).split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --------------------------------------------------
+# ENUMS
+# --------------------------------------------------
+
+class HackathonStatus(str, Enum):
+    UPCOMING = "Upcoming"
+    ACTIVE = "Active"
+    COMPLETED = "Completed"
+
+# --------------------------------------------------
+# MODELS
+# --------------------------------------------------
+
+class Hackathon(BaseModel):
+    id: int
+    title: str = Field(min_length=3)
+    description: str = Field(min_length=10)
+    technologies: List[str]
+
+    max_team_size: int = Field(
+        default=4,
+        ge=1,
+        le=10
+    )
+
+    status: HackathonStatus = HackathonStatus.UPCOMING
+
+
+class Submission(BaseModel):
+    team_name: str = Field(min_length=1)
+    project_title: str = Field(min_length=1)
+    github_url: HttpUrl
+    description: str = Field(min_length=10)
+
+    @field_validator("github_url")
+    @classmethod
+    def validate_github_url(cls, value):
+        if value.host != "github.com":
+            raise ValueError(
+                "Only GitHub repository URLs are allowed."
+            )
+        return value
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "team_name": "Code Warriors",
+                "project_title": "Smart Mentor",
+                "github_url": "https://github.com/codewarriors/smart-mentor",
+                "description": "AI-powered mentor matching platform"
+            }
+        }
+    }
+
+
+class SubmissionRecord(Submission):
+    hackathon_id: int
+
+
+class SubmissionResponse(BaseModel):
+    message: str
+    received_data: SubmissionRecord
+
+# --------------------------------------------------
+# MOCK DATABASES
+# --------------------------------------------------
+
+HACKATHONS_DB = [
+    {
+        "id": 1,
+        "title": "AI for Social Good 2026",
+        "description": (
+            "Build innovative AI agents "
+            "to tackle local community challenges."
+        ),
+        "technologies": [
+            "Python",
+            "FastAPI",
+            "OpenAI API"
+        ],
+        "max_team_size": 4,
+        "status": "Active"
+    },
+    {
+        "id": 2,
+        "title": "Full-Stack Speedrun",
+        "description": (
+            "Develop and deploy a complete "
+            "web application in 48 hours."
+        ),
+        "technologies": [
+            "React",
+            "Node.js",
+            "TailwindCSS"
+        ],
+        "max_team_size": 3,
+        "status": "Upcoming"
+    }
+]
+
+SUBMISSIONS_DB: List[dict] = []
+
+# --------------------------------------------------
+# GENERAL ENDPOINTS
+# --------------------------------------------------
+
+@app.get("/", tags=["General"])
+def home():
+    return {
+        "app": "SkillBridge Hackathon API",
+        "version": "1.1.0",
+        "status": "running"
+    }
+
+
+@app.get("/health", tags=["General"])
+def health():
+    return {"status": "healthy"}
+
+# --------------------------------------------------
+# HACKATHON ENDPOINTS
+# --------------------------------------------------
+
+@app.get(
+    "/hackathons",
+    response_model=List[Hackathon],
+    tags=["Hackathons"]
+)
+def get_all_hackathons():
+    return HACKATHONS_DB
+
+
+@app.get(
+    "/hackathons/{hackathon_id}",
+    response_model=Hackathon,
+    tags=["Hackathons"]
+)
+def get_hackathon_by_id(hackathon_id: int):
+
+    hackathon = next(
+        (
+            h
+            for h in HACKATHONS_DB
+            if h["id"] == hackathon_id
+        ),
+        None
+    )
+
+    if not hackathon:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Hackathon with ID {hackathon_id} not found"
+        )
+
+    return hackathon
+
+# --------------------------------------------------
+# SUBMISSION ENDPOINTS
+# --------------------------------------------------
+
+@app.post(
+    "/hackathons/{hackathon_id}/submit",
+    response_model=SubmissionResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Submissions"]
+)
+def submit_project(
+    hackathon_id: int,
+    submission: Submission
+):
+
+    hackathon = next(
+        (
+            h
+            for h in HACKATHONS_DB
+            if h["id"] == hackathon_id
+        ),
+        None
+    )
+
+    if not hackathon:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Hackathon not found."
+        )
+
+    # Only active hackathons accept submissions
+    if hackathon["status"] != HackathonStatus.ACTIVE.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Submissions are only allowed "
+                "for active hackathons."
+            )
+        )
+
+    # Prevent duplicate team submissions
+    existing_submission = next(
+        (
+            s
+            for s in SUBMISSIONS_DB
+            if s["hackathon_id"] == hackathon_id
+            and s["team_name"].lower()
+            == submission.team_name.lower()
+        ),
+        None
+    )
+
+    if existing_submission:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This team has already submitted."
+        )
+
+    submission_record = {
+        "hackathon_id": hackathon_id,
+        **submission.model_dump()
+    }
+
+    SUBMISSIONS_DB.append(submission_record)
+
+    return {
+        "message": (
+            f"Successfully submitted "
+            f"'{submission.project_title}' "
+            f"for {hackathon['title']}!"
+        ),
+        "received_data": submission_record
+    }
+
+
+@app.get(
+    "/submissions",
+    response_model=List[SubmissionRecord],
+    tags=["Submissions"]
+)
+def get_all_submissions():
+    return SUBMISSIONS_DB
+```
